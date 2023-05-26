@@ -1,7 +1,8 @@
-from tqdm import tqdm
+from rdflib import Graph
+from rdflib.plugins.parsers.notation3 import BadSyntax
 from typing import List, Iterable
 from sys import stderr
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, DEVNULL
 
 parse_to_graph_call = ["./lib/conll-rdf/run.sh", "CoNLLStreamExtractor"]
 column_names = [
@@ -18,7 +19,7 @@ column_names = [
     "PRED-ARGs",
 ]
 
-entire_call = parse_to_graph_call + ["http://ignore.me/"] + column_names
+entire_call = parse_to_graph_call + ["http://ignore.me#"] + column_names
 
 
 def conll_sentences(lines: Iterable[str]):
@@ -37,13 +38,17 @@ class CoNllStreamExtractor:
     def __init__(self) -> None:
         print(f"Creating call {entire_call}")
         self.process = Popen(
-            entire_call, stdin=PIPE, stdout=PIPE, stderr=stderr, universal_newlines=True
+            entire_call,
+            stdin=PIPE,
+            stdout=PIPE,
+            stderr=DEVNULL,
+            universal_newlines=True,
         )
 
     def send(self, sentence):
         self.process.stdin.write(sentence)
-        self.process.stdin.write('\n#_END_')
-        self.process.stdin.write('\n\n')
+        self.process.stdin.write("\n#_END_")
+        self.process.stdin.write("\n\n")
         self.process.stdin.flush()
 
     def recieve(self):
@@ -54,16 +59,36 @@ class CoNllStreamExtractor:
             if buffer == "" or "#_END_" in line:
                 break
         return buffer
-        
+
+
+class bcolors:
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 stream = CoNllStreamExtractor()
 
-
+sucess_counter = 0
+failure_counter = 0
 ConllSentence = List[str]
 with open("data/propbank/contracts/contracts_proposition_bank.conllx") as f:
     sentences = conll_sentences(f)
-    for sent in tqdm(sentences):
+    for sent in sentences:
         stream.send(sent)
         result = stream.recieve()
-        print(result)
+        # print(f"{bcolors.WARNING}{ result }{bcolors.ENDC}")
+        g = Graph()
+        try:
+            g.parse(data=result, format="ttl")
+            sucess_counter += 1
+        except BadSyntax:
+            failure_counter += 1
+print(sucess_counter)
+print(failure_counter)
