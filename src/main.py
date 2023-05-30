@@ -1,6 +1,6 @@
 from rdflib import Graph
 from rdflib.plugins.parsers.notation3 import BadSyntax
-from typing import List, Iterable
+from typing import List, Iterable, Optional, Tuple
 from sys import stderr
 from subprocess import Popen, PIPE, DEVNULL
 
@@ -53,8 +53,25 @@ class CoNLLStreamExtractor(CoNLLRDFProcess):
 
 
 class CoNLLRDFUpdater(CoNLLRDFProcess):
-    def __init__(self, model: str, update_files: List[str]):
-        pass
+    def __init__(
+        self,
+        model: Tuple[str, str],
+        update_files: List[str],
+        threads: Optional[int] = None,
+        custom=True,
+    ):
+        
+        args = []
+        args += list(model)
+        if threads is not None:
+            args += ["-threads", threads]
+        if custom:
+            args += ["-custom"]
+        if update_files:
+            args += ["-updates"]
+            args += update_files
+        super().__init__(args)
+
 
 
 class bcolors:
@@ -85,6 +102,8 @@ column_names = [
 
 
 stream = CoNLLStreamExtractor("http://ignore.me#", column_names)
+update_files = ["empty_sparql.sparql"]
+updater = CoNLLRDFUpdater([], update_files)
 sucess_counter = 0
 failure_counter = 0
 ConllSentence = List[str]
