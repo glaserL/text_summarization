@@ -4,23 +4,6 @@ from typing import List, Iterable
 from sys import stderr
 from subprocess import Popen, PIPE, DEVNULL
 
-parse_to_graph_call = ["./lib/conll-rdf/run.sh", "CoNLLStreamExtractor"]
-column_names = [
-    "ID",
-    "WORD",
-    "LEMMA",
-    "UPOS",
-    "XPOS",
-    "FEATS",
-    "HEAD",
-    "EDGE",
-    "IGNORE",
-    "PRED",
-    "PRED-ARGs",
-]
-
-entire_call = parse_to_graph_call + ["http://ignore.me#"] + column_names
-
 
 def conll_sentences(lines: Iterable[str]):
     buffer = ""
@@ -34,11 +17,13 @@ def conll_sentences(lines: Iterable[str]):
     yield buffer
 
 
-class CoNllStreamExtractor:
-    def __init__(self) -> None:
-        print(f"Creating call {entire_call}")
+class CoNLLRDFProcess:
+    def __init__(self, args: List[str]):
+        prefix = ["./lib/conll-rdf/run.sh", self.__class__.__name__]
+        call = prefix + args
+        print(f"Starting process {call}")
         self.process = Popen(
-            entire_call,
+            call,
             stdin=PIPE,
             stdout=PIPE,
             stderr=DEVNULL,
@@ -61,6 +46,17 @@ class CoNllStreamExtractor:
         return buffer
 
 
+class CoNLLStreamExtractor(CoNLLRDFProcess):
+    def __init__(self, base_uri: str, columns: List[str]) -> None:
+        args = [base_uri] + columns
+        super().__init__(args)
+
+
+class CoNLLRDFUpdater(CoNLLRDFProcess):
+    def __init__(self, model: str, update_files: List[str]):
+        pass
+
+
 class bcolors:
     HEADER = "\033[95m"
     OKBLUE = "\033[94m"
@@ -73,8 +69,22 @@ class bcolors:
     UNDERLINE = "\033[4m"
 
 
-stream = CoNllStreamExtractor()
+column_names = [
+    "ID",
+    "WORD",
+    "LEMMA",
+    "UPOS",
+    "XPOS",
+    "FEATS",
+    "HEAD",
+    "EDGE",
+    "IGNORE",
+    "PRED",
+    "PRED-ARGs",
+]
 
+
+stream = CoNLLStreamExtractor("http://ignore.me#", column_names)
 sucess_counter = 0
 failure_counter = 0
 ConllSentence = List[str]
